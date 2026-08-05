@@ -12,11 +12,14 @@ RUN npm ci
 # Copia o restante do código
 COPY . .
 
-# Variáveis públicas precisam existir no momento do build
+# Variáveis precisam existir no momento do build
+# (o Next.js executa os route handlers durante "collecting page data")
 ARG NEXT_PUBLIC_SUPABASE_URL
 ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+ARG SUPABASE_SERVICE_ROLE_KEY
 ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
 ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+ENV SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
 
 # Faz o build de produção
 RUN npm run build
