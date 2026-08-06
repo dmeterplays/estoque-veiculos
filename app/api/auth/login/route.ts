@@ -24,6 +24,7 @@ export async function POST(request: Request) {
   });
 
   if (error) {
+    console.error('login error:', error.status, error.message, JSON.stringify(error));
     return NextResponse.json(
       { error: 'Email ou senha incorretos' },
       { status: 401 }
