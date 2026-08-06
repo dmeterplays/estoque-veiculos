@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase-server';
+import { supabaseAdmin } from '@/lib/supabase';
 import { errorResponse, jsonResponse } from '@/lib/http';
 import { z } from 'zod';
 
@@ -104,7 +105,7 @@ export async function PATCH(
     }
   }
 
-  const { error: updErr } = await supabase
+  const { error: updErr } = await supabaseAdmin
     .from('vehicles')
     .update(fields)
     .eq('id', id);
@@ -112,9 +113,9 @@ export async function PATCH(
 
   // atualiza cores (substitui todas)
   if (d.colors !== undefined) {
-    await supabase.from('vehicle_colors').delete().eq('vehicle_id', id);
+    await supabaseAdmin.from('vehicle_colors').delete().eq('vehicle_id', id);
     if (d.colors.length > 0) {
-      await supabase.from('vehicle_colors').insert(
+      await supabaseAdmin.from('vehicle_colors').insert(
         d.colors.map((c) => ({ vehicle_id: id, name: c.name, quantity: c.quantity }))
       );
     }
@@ -122,7 +123,7 @@ export async function PATCH(
 
   // atualiza mídia (substitui todas)
   if (hasMedia) {
-    await supabase.from('vehicle_images').delete().eq('vehicle_id', id);
+    await supabaseAdmin.from('vehicle_images').delete().eq('vehicle_id', id);
     const media = [
       ...(d.media ?? []),
       ...(d.images ?? []).map((url) => ({ url, kind: 'image' as const })),
@@ -130,7 +131,7 @@ export async function PATCH(
     const seen = new Set<string>();
     const unique = media.filter((m) => (seen.has(m.url) ? false : (seen.add(m.url), true)));
     if (unique.length > 0) {
-      await supabase.from('vehicle_images').insert(
+      await supabaseAdmin.from('vehicle_images').insert(
         unique.map((m, i) => ({
           vehicle_id: id,
           url: m.url,
@@ -173,9 +174,9 @@ export async function DELETE(
   if (!vehicle) return errorResponse('Veículo não encontrado', 404);
 
   // vehicle_images tem on delete cascade; vehicle_colors não, então remove manualmente
-  await supabase.from('vehicle_colors').delete().eq('vehicle_id', id);
+  await supabaseAdmin.from('vehicle_colors').delete().eq('vehicle_id', id);
 
-  const { error } = await supabase
+  const { error } = await supabaseAdmin
     .from('vehicles')
     .delete()
     .eq('id', id);
