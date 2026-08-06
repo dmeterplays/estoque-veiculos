@@ -1,9 +1,7 @@
-import { createClient } from '@/lib/supabase-server';
+import { supabasePublic } from '@/lib/supabase';
 import { errorResponse, jsonResponse } from '@/lib/http';
 
 export async function POST(request: Request) {
-  const supabase = await createClient();
-
   let body: { email?: string } = {};
   try {
     body = await request.json();
@@ -16,7 +14,7 @@ export async function POST(request: Request) {
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://estoque.viralstudios.com.br';
 
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+  const { error } = await supabasePublic.auth.resetPasswordForEmail(email, {
     redirectTo: `${siteUrl}/reset-password`,
   });
 
