@@ -50,8 +50,19 @@ import {
   Play,
   ImagePlus,
   X,
+  MoreVertical,
+  Pencil,
+  Trash2,
+  Power,
+  PowerOff,
 } from 'lucide-react';
 import { LogoutButton } from '@/components/logout-button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 type Store = {
   id: string;
@@ -68,6 +79,7 @@ type Vehicle = {
   id: string;
   brand: string;
   model: string;
+  year_manufacture?: number;
   year_model: number;
   km: number;
   price: number;
@@ -248,6 +260,7 @@ export default function DashboardClient({
                         v.media?.find((m) => m.is_main && m.kind === 'image')?.url ??
                         v.media?.find((m) => m.kind === 'image')?.url ??
                         v.image;
+                      const isAvailable = v.active !== false;
                       return (
                         <Card key={v.id} className="overflow-hidden">
                           <div className="aspect-[4/3] bg-muted relative">
@@ -263,6 +276,11 @@ export default function DashboardClient({
                                 <Car className="h-10 w-10" />
                               </div>
                             )}
+                            {!isAvailable && (
+                              <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                <Badge variant="destructive">Indisponível</Badge>
+                              </div>
+                            )}
                             <div className="absolute top-2 right-2 flex gap-1">
                               {(v.media ?? []).filter((m) => m.kind === 'video').length > 0 && (
                                 <Badge variant="secondary" className="text-[10px]">
@@ -272,12 +290,23 @@ export default function DashboardClient({
                             </div>
                           </div>
                           <CardContent className="p-4">
-                            <div className="font-semibold truncate">
-                              {v.brand} {v.model}
-                            </div>
-                            <div className="text-xs text-muted-foreground mt-0.5">
-                              {v.year_model} · {v.km.toLocaleString('pt-BR')} km ·{' '}
-                              {v.city}/{v.state}
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <div className="font-semibold truncate">
+                                  {v.brand} {v.model}
+                                </div>
+                                <div className="text-xs text-muted-foreground mt-0.5">
+                                  {v.year_model} · {v.km.toLocaleString('pt-BR')} km ·{' '}
+                                  {v.city}/{v.state}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <VehicleActions
+                                  vehicle={v}
+                                  onChanged={loadVehicles}
+                                  onDeleted={loadVehicles}
+                                />
+                              </div>
                             </div>
                             <div className="flex items-center justify-between mt-3">
                               <span className="font-bold text-lg">
@@ -286,8 +315,13 @@ export default function DashboardClient({
                                   currency: 'BRL',
                                 })}
                               </span>
-                              <Badge variant="secondary">
-                                {v.fuel} · {v.transmission}
+                              <Badge
+                                variant={isAvailable ? 'secondary' : 'outline'}
+                                className={
+                                  isAvailable ? 'text-green-700 border-green-300' : ''
+                                }
+                              >
+                                {isAvailable ? 'Disponível' : 'Indisponível'}
                               </Badge>
                             </div>
                           </CardContent>
@@ -421,23 +455,176 @@ export default function DashboardClient({
 }
 
 function AddVehicleDialogContent({ onAdded }: { onAdded: () => void }) {
-  const [open, setOpen] = useState(false);
+  return (
+    <VehicleFormDialog
+      trigger={
+        <Button>
+          <Plus className="h-4 w-4 mr-2" />
+          Cadastrar veículo
+        </Button>
+      }
+      title="Cadastrar veículo manualmente"
+      submitLabel="Salvar veículo"
+      onSaved={onAdded}
+    />
+  );
+}
+
+function VehicleActions({
+  vehicle,
+  onChanged,
+  onDeleted,
+}: {
+  vehicle: Vehicle;
+  onChanged: () => void;
+  onDeleted: () => void;
+}) {
+  const [editOpen, setEditOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const isAvailable = vehicle.active !== false;
+
+  async function toggleAvailability() {
+    setBusy(true);
+    try {
+      const res = await fetch(`/dashboard/vehicles/${vehicle.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ active: !isAvailable }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Erro ao atualizar');
+      }
+      toast.success(isAvailable ? 'Veículo marcado como indisponível' : 'Veículo disponível');
+      onChanged();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao atualizar');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleDelete() {
+    setBusy(true);
+    try {
+      const res = await fetch(`/dashboard/vehicles/${vehicle.id}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Erro ao excluir');
+      }
+      toast.success('Veículo excluído');
+      setConfirmOpen(false);
+      onDeleted();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao excluir');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-8 w-8" disabled={busy}>
+            <MoreVertical className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => setEditOpen(true)}>
+            <Pencil className="h-4 w-4 mr-2" /> Editar
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={toggleAvailability}>
+            {isAvailable ? (
+              <PowerOff className="h-4 w-4 mr-2" />
+            ) : (
+              <Power className="h-4 w-4 mr-2" />
+            )}
+            {isAvailable ? 'Indisponibilizar' : 'Disponibilizar'}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setConfirmOpen(true)} className="text-destructive">
+            <Trash2 className="h-4 w-4 mr-2" /> Excluir
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <VehicleFormDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        vehicle={vehicle}
+        title="Editar veículo"
+        submitLabel="Salvar alterações"
+        onSaved={onChanged}
+      />
+
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Excluir veículo</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Tem certeza que deseja excluir <strong>{vehicle.brand} {vehicle.model}</strong>?
+            Essa ação não pode ser desfeita.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={busy}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={busy}>
+              {busy && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Excluir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+function VehicleFormDialog({
+  trigger,
+  open,
+  onOpenChange,
+  vehicle,
+  title,
+  submitLabel,
+  onSaved,
+}: {
+  trigger?: React.ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  vehicle?: Vehicle | null;
+  title: string;
+  submitLabel: string;
+  onSaved: () => void;
+}) {
+  const isEdit = !!vehicle;
+  const [openState, setOpenState] = useState(false);
+  const openValue = onOpenChange !== undefined ? (open ?? false) : openState;
+  const setOpenValue = onOpenChange ?? setOpenState;
+
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [media, setMedia] = useState<{ url: string; kind: 'image' | 'video' }[]>([]);
+  const [media, setMedia] = useState<{ url: string; kind: 'image' | 'video' }[]>(
+    vehicle?.media?.map((m) => ({ url: m.url, kind: m.kind === 'video' ? 'video' : 'image' })) ?? []
+  );
   const [form, setForm] = useState({
-    brand: '',
-    model: '',
-    year_manufacture: new Date().getFullYear(),
-    year_model: new Date().getFullYear(),
-    km: '',
-    price: '',
-    fuel: 'FLEX',
-    transmission: 'MANUAL',
-    condition: 'used',
-    city: '',
-    state: '',
-    image: '',
+    brand: vehicle?.brand ?? '',
+    model: vehicle?.model ?? '',
+    year_manufacture: vehicle?.year_manufacture ?? new Date().getFullYear(),
+    year_model: vehicle?.year_model ?? new Date().getFullYear(),
+    km: vehicle?.km?.toString() ?? '',
+    price: vehicle?.price?.toString() ?? '',
+    fuel: vehicle?.fuel ?? 'FLEX',
+    transmission: vehicle?.transmission ?? 'MANUAL',
+    condition: vehicle?.condition ?? 'used',
+    city: vehicle?.city ?? '',
+    state: vehicle?.state ?? '',
+    image: vehicle?.image ?? '',
     description: '',
   });
 
@@ -475,60 +662,45 @@ function AddVehicleDialogContent({ onAdded }: { onAdded: () => void }) {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await fetch('/dashboard/vehicles', {
-        method: 'POST',
+      const payload = {
+        ...form,
+        km: Number(form.km),
+        price: Number(form.price),
+        year_manufacture: Number(form.year_manufacture),
+        year_model: Number(form.year_model),
+        media,
+      };
+      if (isEdit) delete (payload as { description?: string }).description;
+      const url = isEdit
+        ? `/dashboard/vehicles/${vehicle!.id}`
+        : '/dashboard/vehicles';
+      const res = await fetch(url, {
+        method: isEdit ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...form,
-          km: Number(form.km),
-          price: Number(form.price),
-          year_manufacture: Number(form.year_manufacture),
-          year_model: Number(form.year_model),
-          colors: [{ name: 'Única', quantity: 1 }],
-          media,
-        }),
+        body: JSON.stringify(
+          isEdit ? payload : { ...payload, colors: [{ name: 'Única', quantity: 1 }] }
+        ),
       });
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || 'Erro ao cadastrar');
+        throw new Error(data.error || 'Erro ao salvar');
       }
-      toast.success('Veículo cadastrado!');
-      setOpen(false);
-      setMedia([]);
-      setForm({
-        brand: '',
-        model: '',
-        year_manufacture: new Date().getFullYear(),
-        year_model: new Date().getFullYear(),
-        km: '',
-        price: '',
-        fuel: 'FLEX',
-        transmission: 'MANUAL',
-        condition: 'used',
-        city: '',
-        state: '',
-        image: '',
-        description: '',
-      });
-      onAdded();
+      toast.success(isEdit ? 'Veículo atualizado!' : 'Veículo cadastrado!');
+      setOpenValue(false);
+      onSaved();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao cadastrar');
+      toast.error(err instanceof Error ? err.message : 'Erro ao salvar');
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Cadastrar veículo
-        </Button>
-      </DialogTrigger>
+    <Dialog open={openValue} onOpenChange={setOpenValue}>
+      {trigger ? <DialogTrigger asChild>{trigger}</DialogTrigger> : null}
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Cadastrar veículo manualmente</DialogTitle>
+          <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
@@ -693,7 +865,7 @@ function AddVehicleDialogContent({ onAdded }: { onAdded: () => void }) {
           <DialogFooter>
             <Button type="submit" disabled={loading}>
               {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Salvar veículo
+              {submitLabel}
             </Button>
           </DialogFooter>
         </form>
