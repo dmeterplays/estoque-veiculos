@@ -26,5 +26,26 @@ export async function GET() {
 
   if (error) return jsonResponse({ vehicles: [], error: error.message });
 
-  return jsonResponse({ vehicles: data ?? [] });
+  // busca imagens/vídeos de todos os veículos da loja de uma vez
+  const { data: images, error: imgErr } = await supabase
+    .from('vehicle_images')
+    .select('vehicle_id, url, kind, position, is_main')
+    .in('vehicle_id', (data ?? []).map((v) => v.id))
+    .order('position', { ascending: true });
+
+  if (imgErr) return jsonResponse({ vehicles: data ?? [], error: imgErr.message });
+
+  const byVehicle = new Map<string, typeof images>();
+  for (const img of images ?? []) {
+    const arr = byVehicle.get(img.vehicle_id) ?? [];
+    arr.push(img);
+    byVehicle.set(img.vehicle_id, arr);
+  }
+
+  const vehicles = (data ?? []).map((v) => ({
+    ...v,
+    media: byVehicle.get(v.id) ?? [],
+  }));
+
+  return jsonResponse({ vehicles });
 }

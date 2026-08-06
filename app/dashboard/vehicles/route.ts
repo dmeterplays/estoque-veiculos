@@ -19,6 +19,10 @@ const VehicleCreateSchema = z.object({
   colors: z
     .array(z.object({ name: z.string(), quantity: z.number().int().positive() }))
     .default([]),
+  images: z.array(z.string().url()).default([]),
+  media: z
+    .array(z.object({ url: z.string().url(), kind: z.enum(['image', 'video']).default('image') }))
+    .default([]),
 });
 
 export async function POST(request: Request) {
@@ -51,6 +55,16 @@ export async function POST(request: Request) {
 
   const d = parsed.data;
 
+  const media: { url: string; kind: 'image' | 'video' }[] = [
+    ...d.media,
+    ...d.images.map((url) => ({ url, kind: 'image' as const })),
+  ];
+  // remove duplicatas
+  const seen = new Set<string>();
+  const uniqueMedia = media.filter((m) => (seen.has(m.url) ? false : (seen.add(m.url), true)));
+
+  const firstImage = uniqueMedia.find((m) => m.kind === 'image')?.url ?? d.image ?? null;
+
   const { data: vehicle, error } = await supabase
     .from('vehicles')
     .insert({
@@ -66,7 +80,7 @@ export async function POST(request: Request) {
       condition: d.condition,
       city: d.city,
       state: d.state,
-      image: d.image || null,
+      image: firstImage,
       description: d.description || null,
     })
     .select('id')
@@ -80,6 +94,18 @@ export async function POST(request: Request) {
         vehicle_id: vehicle.id,
         name: c.name,
         quantity: c.quantity,
+      }))
+    );
+  }
+
+  if (uniqueMedia.length > 0) {
+    await supabase.from('vehicle_images').insert(
+      uniqueMedia.map((m, i) => ({
+        vehicle_id: vehicle.id,
+        url: m.url,
+        kind: m.kind,
+        position: i,
+        is_main: i === 0 && m.kind === 'image',
       }))
     );
   }

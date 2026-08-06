@@ -47,6 +47,9 @@ import {
   Copy,
   Check,
   Plus,
+  Play,
+  ImagePlus,
+  X,
 } from 'lucide-react';
 import { LogoutButton } from '@/components/logout-button';
 
@@ -76,6 +79,7 @@ type Vehicle = {
   condition: string;
   active?: boolean;
   colors: { name: string; quantity: number }[];
+  media?: { vehicle_id: string; url: string; kind: string; position: number; is_main: boolean }[];
 };
 
 type Sync = {
@@ -238,46 +242,59 @@ export default function DashboardClient({
                     Envie seu estoque via API (aba API Key) ou cadastre manualmente.
                   </div>
                 ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Veículo</TableHead>
-                        <TableHead>Ano</TableHead>
-                        <TableHead>KM</TableHead>
-                        <TableHead>Preço</TableHead>
-                        <TableHead>Combustível</TableHead>
-                        <TableHead>Câmbio</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {vehicles.map((v) => (
-                        <TableRow key={v.id}>
-                          <TableCell>
-                            <div className="font-medium">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {vehicles.map((v) => {
+                      const mainImg =
+                        v.media?.find((m) => m.is_main && m.kind === 'image')?.url ??
+                        v.media?.find((m) => m.kind === 'image')?.url ??
+                        v.image;
+                      return (
+                        <Card key={v.id} className="overflow-hidden">
+                          <div className="aspect-[4/3] bg-muted relative">
+                            {mainImg ? (
+                              <img
+                                src={mainImg}
+                                alt={`${v.brand} ${v.model}`}
+                                className="w-full h-full object-cover"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                                <Car className="h-10 w-10" />
+                              </div>
+                            )}
+                            <div className="absolute top-2 right-2 flex gap-1">
+                              {(v.media ?? []).filter((m) => m.kind === 'video').length > 0 && (
+                                <Badge variant="secondary" className="text-[10px]">
+                                  <Play className="h-3 w-3 mr-1" /> vídeo
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          <CardContent className="p-4">
+                            <div className="font-semibold truncate">
                               {v.brand} {v.model}
                             </div>
-                            <div className="text-xs text-muted-foreground">
+                            <div className="text-xs text-muted-foreground mt-0.5">
+                              {v.year_model} · {v.km.toLocaleString('pt-BR')} km ·{' '}
                               {v.city}/{v.state}
                             </div>
-                          </TableCell>
-                          <TableCell>{v.year_model}</TableCell>
-                          <TableCell>
-                            {v.km.toLocaleString('pt-BR')} km
-                          </TableCell>
-                          <TableCell className="font-semibold">
-                            {v.price.toLocaleString('pt-BR', {
-                              style: 'currency',
-                              currency: 'BRL',
-                            })}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="secondary">{v.fuel}</Badge>
-                          </TableCell>
-                          <TableCell>{v.transmission}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                            <div className="flex items-center justify-between mt-3">
+                              <span className="font-bold text-lg">
+                                {v.price.toLocaleString('pt-BR', {
+                                  style: 'currency',
+                                  currency: 'BRL',
+                                })}
+                              </span>
+                              <Badge variant="secondary">
+                                {v.fuel} · {v.transmission}
+                              </Badge>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -406,6 +423,8 @@ export default function DashboardClient({
 function AddVehicleDialogContent({ onAdded }: { onAdded: () => void }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [media, setMedia] = useState<{ url: string; kind: 'image' | 'video' }[]>([]);
   const [form, setForm] = useState({
     brand: '',
     model: '',
@@ -427,6 +446,31 @@ function AddVehicleDialogContent({ onAdded }: { onAdded: () => void }) {
       setForm((prev) => ({ ...prev, [field]: e.target.value }));
   }
 
+  async function handleFiles(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    try {
+      const newItems: { url: string; kind: 'image' | 'video' }[] = [];
+      for (const file of Array.from(files)) {
+        const fd = new FormData();
+        fd.append('file', file);
+        const res = await fetch('/api/upload', { method: 'POST', body: fd });
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || 'Falha no upload');
+        }
+        const data = await res.json();
+        newItems.push({ url: data.url, kind: data.kind });
+      }
+      setMedia((prev) => [...prev, ...newItems]);
+      toast.success(`${newItems.length} arquivo(s) enviado(s)!`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro no upload');
+    } finally {
+      setUploading(false);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -441,6 +485,7 @@ function AddVehicleDialogContent({ onAdded }: { onAdded: () => void }) {
           year_manufacture: Number(form.year_manufacture),
           year_model: Number(form.year_model),
           colors: [{ name: 'Única', quantity: 1 }],
+          media,
         }),
       });
       if (!res.ok) {
@@ -449,6 +494,7 @@ function AddVehicleDialogContent({ onAdded }: { onAdded: () => void }) {
       }
       toast.success('Veículo cadastrado!');
       setOpen(false);
+      setMedia([]);
       setForm({
         brand: '',
         model: '',
@@ -585,6 +631,58 @@ function AddVehicleDialogContent({ onAdded }: { onAdded: () => void }) {
               <Label>URL da imagem (opcional)</Label>
               <Input value={form.image} onChange={update('image')} placeholder="https://..." />
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Fotos / Vídeo</Label>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => document.getElementById('media-input')?.click()}
+                disabled={uploading}
+              >
+                {uploading ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <ImagePlus className="h-4 w-4 mr-2" />
+                )}
+                {uploading ? 'Enviando...' : 'Adicionar fotos ou vídeo'}
+              </Button>
+              <input
+                id="media-input"
+                type="file"
+                multiple
+                accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm"
+                className="hidden"
+                onChange={(e) => {
+                  handleFiles(e.target.files);
+                  e.target.value = '';
+                }}
+              />
+            </div>
+            {media.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {media.map((m, i) => (
+                  <div key={i} className="relative h-20 w-20 rounded-md overflow-hidden bg-muted">
+                    {m.kind === 'video' ? (
+                      <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                        <Play className="h-6 w-6" />
+                      </div>
+                    ) : (
+                      <img src={m.url} alt="" className="w-full h-full object-cover" />
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setMedia((prev) => prev.filter((_, idx) => idx !== i))}
+                      className="absolute top-0.5 right-0.5 bg-black/70 text-white rounded-full p-0.5"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="space-y-1.5">
