@@ -14,8 +14,10 @@ const VehicleCreateSchema = z.object({
   condition: z.enum(['new', 'used']).default('used'),
   city: z.string().min(1),
   state: z.string().length(2),
-  image: z.string().url().optional().nullable(),
-  description: z.string().optional().nullable(),
+  image: z
+    .preprocess((v) => (typeof v === 'string' && v.trim() === '' ? null : v), z.string().url().nullable().optional()),
+  description: z
+    .preprocess((v) => (typeof v === 'string' && v.trim() === '' ? null : v), z.string().nullable().optional()),
   colors: z
     .array(z.object({ name: z.string(), quantity: z.number().int().positive() }))
     .default([]),
