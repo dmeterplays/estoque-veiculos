@@ -139,13 +139,19 @@ export default function AdminClient() {
                     <TableHead>Plano</TableHead>
                     <TableHead>Usuários</TableHead>
                     <TableHead>API Key</TableHead>
+                    <TableHead className="text-right">Estoque</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {stores.map((s) => (
                     <TableRow key={s.id}>
                       <TableCell>
-                        <div className="font-medium">{s.name}</div>
+                        <button
+                          onClick={() => router.push(`/admin/stores/${s.id}`)}
+                          className="text-left font-medium hover:text-primary hover:underline"
+                        >
+                          {s.name}
+                        </button>
                         <div className="text-xs text-muted-foreground">
                           {new Date(s.created_at).toLocaleDateString('pt-BR')}
                         </div>
@@ -173,6 +179,15 @@ export default function AdminClient() {
                             <Copy className="h-3 w-3" />
                           )}
                           <span className="ml-1 text-xs">Copiar</span>
+                        </Button>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => router.push(`/admin/stores/${s.id}`)}
+                        >
+                          Ver estoque
                         </Button>
                       </TableCell>
                     </TableRow>
