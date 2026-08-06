@@ -55,6 +55,7 @@ import {
   Trash2,
   Power,
   PowerOff,
+  Search,
 } from 'lucide-react';
 import { LogoutButton } from '@/components/logout-button';
 import {
@@ -118,6 +119,7 @@ export default function DashboardClient({
   const [vehiclesLoading, setVehiclesLoading] = useState(true);
   const [syncs, setSyncs] = useState<Sync[]>([]);
   const [copied, setCopied] = useState(false);
+  const [search, setSearch] = useState('');
 
   const apiKey = store?.api_key ?? '';
 
@@ -170,6 +172,26 @@ export default function DashboardClient({
       totalValue,
     };
   }, [vehicles]);
+
+  const filteredVehicles = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return vehicles;
+    return vehicles.filter((v) =>
+      [
+        v.brand,
+        v.model,
+        v.city,
+        v.state,
+        String(v.year_model),
+        v.fuel,
+        v.transmission,
+        v.condition === 'new' ? 'novo' : 'usado',
+      ]
+        .join(' ')
+        .toLowerCase()
+        .includes(term)
+    );
+  }, [vehicles, search]);
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -231,7 +253,16 @@ export default function DashboardClient({
               </Card>
             </div>
 
-            <div className="mb-4 flex justify-end">
+            <div className="mb-4 flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="relative flex-1">
+                <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Buscar por marca, modelo, cidade, ano..."
+                  className="pl-9"
+                />
+              </div>
               <AddVehicleDialogContent onAdded={loadVehicles} />
             </div>
 
@@ -253,9 +284,13 @@ export default function DashboardClient({
                     <br />
                     Envie seu estoque via API (aba API Key) ou cadastre manualmente.
                   </div>
+                ) : filteredVehicles.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    Nenhum resultado para sua busca.
+                  </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {vehicles.map((v) => {
+                    {filteredVehicles.map((v) => {
                       const mainImg =
                         v.media?.find((m) => m.is_main && m.kind === 'image')?.url ??
                         v.media?.find((m) => m.kind === 'image')?.url ??
