@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,17 +14,23 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { CarFront, Loader2, CheckCircle2 } from 'lucide-react';
+import { createClient } from '@/lib/supabase-browser';
 
 function ResetPasswordForm() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+  const [ready, setReady] = useState(false);
+
+  const supabase = createClient();
 
   useEffect(() => {
-    // Após o link do e-mail, o Supabase seta a sessão via cookie. Sem precisa de ação aqui.
+    // O cliente do Supabase detecta o token de recuperação no #hash da URL
+    // e troca a sessão automaticamente. Esperamos ele estar pronto.
+    const t = setTimeout(() => setReady(true), 1000);
+    return () => clearTimeout(t);
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -39,18 +45,15 @@ function ResetPasswordForm() {
     }
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Erro ao redefinir');
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) throw new Error(error.message);
       setDone(true);
       toast.success('Senha redefinida!');
       setTimeout(() => router.push('/dashboard'), 1500);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao redefinir');
+      toast.error(
+        err instanceof Error ? err.message : 'Erro ao redefinir'
+      );
     } finally {
       setLoading(false);
     }
@@ -91,9 +94,9 @@ function ResetPasswordForm() {
           required
         />
       </div>
-      <Button type="submit" className="w-full" disabled={loading}>
-        {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-        Redefinir senha
+      <Button type="submit" className="w-full" disabled={loading || !ready}>
+        {(loading || !ready) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+        {ready ? 'Redefinir senha' : 'Validando link...'}
       </Button>
     </form>
   );
