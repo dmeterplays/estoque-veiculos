@@ -37,6 +37,7 @@ export async function GET(request: Request) {
     query = query.eq('store_id', store.id);
   } else if (scope === 'all') {
     if (f.store_id) query = query.eq('store_id', f.store_id);
+    if (f.store_name) query = query.ilike('store_name', `%${f.store_name}%`);
   } else {
     return errorResponse('Invalid scope. Use "own" or "all"', 400);
   }

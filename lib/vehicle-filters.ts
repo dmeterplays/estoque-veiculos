@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 export const VehicleFiltersSchema = z.object({
   store_id: z.string().uuid().optional(),
+  store_name: z.string().optional(),
   brand: z.string().optional(),
   model: z.string().optional(),
   fuel: z.string().optional(),
