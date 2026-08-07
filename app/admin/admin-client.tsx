@@ -97,6 +97,9 @@ export default function AdminClient() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <a href="/docs" className="text-sm text-muted-foreground hover:text-foreground">
+              Docs API
+            </a>
             <Button
               variant="ghost"
               size="sm"

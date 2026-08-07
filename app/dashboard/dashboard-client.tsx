@@ -156,7 +156,12 @@ export default function DashboardClient({
               </div>
             </div>
           </div>
-          <LogoutButton />
+          <div className="flex items-center gap-2">
+            <a href="/docs" className="text-sm text-muted-foreground hover:text-foreground">
+              Docs API
+            </a>
+            <LogoutButton />
+          </div>
         </div>
       </header>
 
