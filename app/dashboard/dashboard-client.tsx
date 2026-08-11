@@ -33,6 +33,7 @@ import { Loader2,
 import { LogoutButton } from '@/components/logout-button';
 import VehicleFormDialog from '@/components/vehicle-form-dialog';
 import { VehicleCard } from '@/components/vehicle-card';
+import { ImportVehiclesDialog } from '@/components/import-vehicles-dialog';
 import type { Vehicle } from '@/types/dashboard';
 
 type Store = {
@@ -218,16 +219,17 @@ export default function DashboardClient({
                   className="pl-9"
                 />
               </div>
+              <ImportVehiclesDialog onImported={loadVehicles} />
               <VehicleFormDialog
                 apiBase="/dashboard/vehicles"
                 trigger={
                   <Button>
                     <Plus className="h-4 w-4 mr-2" />
-                    Cadastrar veÃ­culo
+                    Cadastrar veículo
                   </Button>
                 }
-                title="Cadastrar veÃ­culo manualmente"
-                submitLabel="Salvar veÃ­culo"
+                title="Cadastrar veículo manualmente"
+                submitLabel="Salvar veículo"
                 onSaved={loadVehicles}
               />
             </div>
